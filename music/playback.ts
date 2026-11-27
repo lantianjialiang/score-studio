@@ -1,4 +1,5 @@
 import { beats, type ScoreDocument } from './score';
+import { basePath } from './deployment';
 
 export type Voice = 'piano' | 'guitar' | 'ukulele';
 export const voices: Record<Voice, string> = { piano: '钢琴', guitar: '民谣吉他', ukulele: '尤克里里' };
@@ -23,7 +24,7 @@ export function createVoice(Tone: typeof import('tone'), context: import('tone')
   const ready = voice === 'ukulele' ? new Promise<void>(resolve => {
     ukulele = new Tone.Sampler({
       context, urls: { C4: 'C4.flac', E4: 'E4.flac', G4: 'G4.flac', A4: 'A4.flac', 'C#5': 'Cs5.flac', F5: 'F5.flac', A5: 'A5.flac', C6: 'C6.flac' },
-      baseUrl: '/soundfonts/ukulele/', release: 0.16, onload: resolve, onerror: () => resolve(),
+      baseUrl: basePath + '/soundfonts/ukulele/', release: 0.16, onload: resolve, onerror: () => resolve(),
     }).connect(output);
     ukulele.volume.value = -3;
   }) : import('soundfont-player').then(({ default: Soundfont }) => {

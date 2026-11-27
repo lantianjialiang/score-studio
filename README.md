@@ -2,6 +2,37 @@
 
 在浏览器里导入乐谱、对照谱面和分段练习。项目范围与数据结构见 [需求文档](requirement.md)。
 
+## 发布到 GitHub Pages
+
+建议仓库名为 **`score-studio`**。如果使用这个名字，发布后地址为 `https://<GitHub 用户名>.github.io/score-studio/`，乐理入门在 `/score-studio/learn/`。
+
+1. 在 GitHub 创建空仓库 `score-studio`。使用 GitHub Free 时可创建公开仓库。
+2. 提交本地改动，再把 `main` 推送到该仓库。把下方的 `YOUR_GITHUB_USERNAME` 换成实际用户名。
+3. 打开仓库的 **Settings → Pages**，把 **Build and deployment → Source** 设为 **GitHub Actions**。然后到 **Actions → Deploy to GitHub Pages → Run workflow**，选择 `main` 运行首次部署。
+
+```powershell
+git add .
+git commit -m "准备 GitHub Pages 部署"
+git remote add origin https://github.com/YOUR_GITHUB_USERNAME/score-studio.git
+git push -u origin main
+```
+
+之后每次推送 `main` 都会触发 [Pages 工作流](.github/workflows/pages.yml)。也可以到 **Actions → Deploy to GitHub Pages → Run workflow** 手动部署。部署完成后，从 **Settings → Pages** 打开实际站点地址。工作流会读取 Pages 的站点路径，仓库改名或使用根路径时会在下一次构建中使用新的路径。[GitHub Pages 发布说明](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site)
+
+| 功能 | GitHub Pages 静态版 | 本地服务器版 |
+| --- | --- | --- |
+| 曲库、乐理实验、简谱录入、MusicXML/MXL/MIDI 导入、谱面转换、播放、打印、MP3 导出 | 支持 | 支持 |
+| 我的乐谱 | 保存在当前浏览器，清除站点数据后会移除 | 保存在 Next.js 服务器，可在不同浏览器打开 |
+| 图片识别 | 使用服务器版处理图片 | 启动 FastAPI 并配置识别服务后可用 |
+
+可在本地检查静态产物。以下命令将生成 `out/`，其中包含首页、乐理页和音色资源。
+
+```powershell
+$env:PAGES_BASE_PATH = '/score-studio'
+npm run build:pages
+Remove-Item Env:PAGES_BASE_PATH
+```
+
 ## 本地运行
 
 需要 Node.js 22.11 或更高版本。以下命令在 PowerShell 中执行。
@@ -37,7 +68,7 @@ PNG 或 JPG 上传后，打开校对区域，逐个修改音高、时值或附�
 
 ## 使用约定
 
-- 「我的乐谱」保存在 Next.js 服务器。手录简谱、导入乐谱和示例曲都可保存，打开后可编辑曲名和简谱内容，也可删除。数据默认写入项目的 `.data/scores`，可通过 `SCORE_STORAGE_DIR` 指定持久化目录。重启应用或换浏览器连接同一服务器后仍可打开。当前服务器使用一个共享乐谱库。
+- 手录简谱、导入乐谱和示例曲都可保存到「我的乐谱」，打开后可编辑曲名和简谱内容，也可删除。服务器版默认写入项目的 `.data/scores`，可通过 `SCORE_STORAGE_DIR` 指定持久化目录。同一服务器的访问者共用该乐谱库。
 - 吉他与尤克里里 TAB 默认在每个音符上方对齐显示单音指法图。取消「显示指法图」可切换为紧凑 TAB。
 - 每种乐器可分别选择「直接转换」或「简化指法」。直接转换按当前音高排指法。简化指法保留旋律和节奏，尝试适合该乐器的调，并优先低品位、少换弦和少换指。谱面标注实际移调及换弦次数，播放、打印和 MP3 使用选定的 TAB 版本。
 - 点击「打印谱子」可预览排版，再选择「打印或另存为 PDF」。打印保留当前谱面与指法图设置。分屏模式下，两种谱面分别起页。

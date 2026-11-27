@@ -10,7 +10,8 @@ import { Jianpu, Staff } from './notation';
 import { solveFretboard, type Instrument, type FingeringMode } from '../music/fretboard';
 import { Tablature } from './tablature';
 import { recognize, Review, type Recognition } from './review';
-import { libraryRequest, type SavedScore } from '../music/library';
+import { listScores, putScore, removeScore, type SavedScore } from '../music/library';
+import { basePath, staticPages } from '../music/deployment';
 
 const initialScore = parseJianpu(examples[0].source, examples[0].title);
 const labels = { jianpu: '数字简谱', staff: '五线谱', guitar: '吉他六线谱', ukulele: '尤克里里四线谱' };
@@ -115,9 +116,12 @@ export default function Studio() {
 
   async function refreshLibrary(signal?: AbortSignal) {
     setLibraryError('');
-    try { setLibrary(await libraryRequest<SavedScore[]>('/api/scores', { signal, cache: 'no-store' })); }
+    try {
+      const entries = await listScores(signal);
+      if (!signal?.aborted) setLibrary(entries);
+    }
     catch {
-      if (!signal?.aborted) setLibraryError('无法连接服务器乐谱库。');
+      if (!signal?.aborted) setLibraryError(staticPages ? '无法读取当前浏览器的乐谱库。' : '无法连接服务器乐谱库。');
     }
   }
 
@@ -161,15 +165,11 @@ export default function Studio() {
     setLibraryBusy(true);
     setError('');
     try {
-      const next = await libraryRequest<SavedScore>('/api/scores?id=' + id, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ...entry, score: { ...entry.score, id } }),
-      });
+      const next = await putScore({ ...entry, score: { ...entry.score, id } });
       load(next.score, { saved: next });
-      setNotice('已保存到服务器。');
+      setNotice(staticPages ? '已保存到当前浏览器。' : '已保存到服务器。');
       setLibrary(entries => [next, ...entries.filter(item => item.score.id !== id)]);
-    } catch (problem) { setError((problem as Error).message || '服务器保存乐谱失败。'); }
+    } catch (problem) { setError((problem as Error).message || '保存乐谱失败。'); }
     finally { setLibraryBusy(false); }
   }
 
@@ -191,21 +191,25 @@ export default function Studio() {
     setError('');
     try {
       if (savedId) {
-        await libraryRequest('/api/scores?id=' + savedId, { method: 'DELETE' });
+        await removeScore(savedId);
         setLibrary(entries => entries.filter(item => item.score.id !== savedId));
       }
       load(initialScore, { example: 0 });
-      setNotice(savedId ? '已从服务器乐谱库中删除。' : '已移除当前乐谱。');
-    } catch (problem) { setError((problem as Error).message || '服务器删除乐谱失败。'); }
+      setNotice(savedId ? '已从我的乐谱中删除。' : '已移除当前乐谱。');
+    } catch (problem) { setError((problem as Error).message || '删除乐谱失败。'); }
     finally { setLibraryBusy(false); }
   }
 
   async function openFile(file?: File) {
     if (!file || libraryBusy) return;
     clearUpload();
+    const image = /\.(png|jpe?g)$/i.test(file.name) || /^image\/(png|jpeg)$/.test(file.type);
+    if (staticPages && image) {
+      setUpload({ file, image, error: '图片识别需要服务器版。这里支持上传 MusicXML、MXL 和 MIDI。' });
+      return;
+    }
     const request = new AbortController();
     importRequest.current = request;
-    const image = /\.(png|jpe?g)$/i.test(file.name) || /^image\/(png|jpeg)$/.test(file.type);
     setUpload({ file, image });
     try {
       if (image) {
@@ -286,7 +290,9 @@ export default function Studio() {
     <header className="masthead">
       <div className="brand"><span className="brand-mark" aria-hidden="true">♪</span><span>谱间</span></div>
       <span className="masthead-label">乐谱工作室</span>
-      <Link href="/learn" className="learn-link">交互式乐理入门</Link>
+      {staticPages
+        ? <a href={basePath + '/learn/'} className="learn-link">交互式乐理入门</a>
+        : <Link href="/learn" className="learn-link">交互式乐理入门</Link>}
     </header>
     <aside className="sidebar">
       <h2>导入乐谱</h2>
@@ -296,8 +302,8 @@ export default function Studio() {
         <button className="import-button" disabled={libraryBusy} onClick={() => fileInput.current?.click()}>
           <span aria-hidden="true">↑</span> 上传或拖入文件
         </button>
-        <small>MusicXML · MXL · MIDI · PNG · JPG</small>
-        <input ref={fileInput} type="file" hidden accept=".musicxml,.xml,.mxl,.mid,.midi,.png,.jpg,.jpeg" onChange={event => {
+        <small>MusicXML · MXL · MIDI{!staticPages && ' · PNG · JPG'}</small>
+        <input ref={fileInput} type="file" hidden accept={'.musicxml,.xml,.mxl,.mid,.midi' + (staticPages ? '' : ',.png,.jpg,.jpeg')} onChange={event => {
           void openFile(event.currentTarget.files?.[0]);
           event.currentTarget.value = '';
         }} />
@@ -305,6 +311,7 @@ export default function Studio() {
       <button className="text-button" disabled={libraryBusy} aria-expanded={Boolean(draft && !draft.original)} onClick={() => startDraft(false)}>＋ 输入简谱</button>
       <section className="library" aria-label="我的乐谱">
         <h2>我的乐谱</h2>
+        {staticPages && <p>乐谱保存在当前浏览器。</p>}
         {libraryError && <div className="library-error"><p role="status">{libraryError}</p><button className="action" onClick={() => void refreshLibrary()}>重新加载</button></div>}
         {!libraryError && library.length === 0 && <p>保存后，乐谱会出现在这里。</p>}
         {library.map(entry => <button key={entry.score.id} disabled={libraryBusy} className={'track ' + (savedId === entry.score.id ? 'selected' : '')}
@@ -377,7 +384,7 @@ export default function Studio() {
           <strong>{upload.file.name}</strong>
           <p>{upload.error ?? (upload.image ? '正在识别图片…' : '正在导入乐谱…')}</p>
         </div>
-        {upload.error && <button className="action" onClick={() => void openFile(upload.file)}>重试</button>}
+        {upload.error && !(staticPages && upload.image) && <button className="action" onClick={() => void openFile(upload.file)}>重试</button>}
         <button className="action" onClick={clearUpload}>{upload.error ? '关闭提示' : '取消导入'}</button>
       </div>}
       {review && <Review key={review.result.score.id} result={review.result} image={review.image}

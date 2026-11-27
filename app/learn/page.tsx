@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { basePath, staticPages } from '../../music/deployment';
 import { OctaveCounter, PitchRatioLab, ScaleTemplateSwitch } from './pitch';
 import { KeySignatureMacro, RhythmGridLab } from './notation-rhythm';
 import { ChordBuilderLab, FretboardMapper, MidiInspector } from './instruments';
@@ -11,10 +12,12 @@ const topics = [
   ['rhythm', '节奏与拍号'], ['chords', '构建三和弦'], ['frets', '弦长与指板'], ['midi', 'MIDI 与音色'],
 ];
 export default function LearnPage() {
+  const HomeLink = staticPages ? 'a' : Link;
+  const home = staticPages ? basePath + '/' : '/';
   return <div className="learn-page">
     <header className="masthead">
-      <Link href="/" className="brand"><span className="brand-mark" aria-hidden="true">♪</span>谱间</Link>
-      <Link href="/" className="masthead-label">返回乐谱工作室</Link>
+      <HomeLink href={home} className="brand"><span className="brand-mark" aria-hidden="true">♪</span>谱间</HomeLink>
+      <HomeLink href={home} className="masthead-label">返回乐谱工作室</HomeLink>
     </header>
     <div className="learn-layout">
       <nav className="learn-nav" aria-label="乐理目录">
